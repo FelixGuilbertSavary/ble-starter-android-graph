@@ -94,18 +94,27 @@
         <ScrollView
             android:id="@+id/log_scroll_view"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
+            android:layout_height="10dp"
             android:layout_weight="1"
-            android:padding="4dp">
+            android:padding="4dp"
+            >
 
             <TextView
                 android:id="@+id/log_text_view"
-                android:scrollbars="vertical"
-                android:gravity="bottom"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:gravity="bottom"
+                android:scrollbars="vertical"
+                />
 
         </ScrollView>
+
+        <Button
+            android:id="@+id/graphBtn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Graph"
+            />
 
     </LinearLayout>
 

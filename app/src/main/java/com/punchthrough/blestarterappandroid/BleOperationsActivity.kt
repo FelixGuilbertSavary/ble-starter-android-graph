@@ -22,11 +22,13 @@ import android.app.AlertDialog
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGattCharacteristic
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.MenuItem
 import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
+import android.widget.Button
 import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -104,6 +106,12 @@ class BleOperationsActivity : AppCompatActivity() {
                 log("Please specify a numeric value for desired ATT MTU (23-517)")
             }
             hideKeyboard()
+        }
+
+        val buttonClick = findViewById<Button>(R.id.graphBtn)
+        buttonClick.setOnClickListener {
+            val intent = Intent(this, GraphActivity::class.java)
+            startActivity(intent)
         }
     }
 
