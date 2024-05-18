@@ -31,13 +31,17 @@ import com.punchthrough.blestarterappandroid.ble.ConnectionManager
 import com.punchthrough.blestarterappandroid.ble.ConnectionManager.parcelableExtraCompat
 import com.punchthrough.blestarterappandroid.databinding.ActivityGraphBinding
 import com.punchthrough.blestarterappandroid.ble.toHexString
+import java.math.BigInteger
 import java.util.Random
 import java.util.UUID
 
 class GraphActivity : AppCompatActivity() {
     private lateinit var binding: ActivityGraphBinding
     private var lineChart: LineChart? = null
-    var test = 7
+    var maxXVisibleRange = 50
+    var currentLen = 0
+    var dataXval = 0
+    val dataCharUUID = UUID.fromString("0000ff01-0000-1000-8000-00805f9b34fb")
     val lineDataSet = LineDataSet(ArrayList<Entry>(), "Concentration")
 
     private val device: BluetoothDevice by lazy {
@@ -50,7 +54,6 @@ class GraphActivity : AppCompatActivity() {
             service.characteristics ?: listOf()
         } ?: listOf()
     }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityGraphBinding.inflate(layoutInflater)
@@ -67,24 +70,21 @@ class GraphActivity : AppCompatActivity() {
 
         for (characteristic in characteristics) {
             println(characteristic.uuid)
-            if(characteristic.uuid.equals(UUID.fromString("0000ff01-0000-1000-8000-00805f9b34fb"))) {
+            if(characteristic.uuid.equals(dataCharUUID)) {
                 ConnectionManager.enableNotifications(device, characteristic)
                 println("Found char!")
             }
         }
 
-        lineDataSet.addEntry(Entry(1F, 1F))
-        lineDataSet.addEntry(Entry(2F, 10F))
-        lineDataSet.addEntry(Entry(3F, 8F))
-        lineDataSet.addEntry(Entry(4F, 5F))
-        lineDataSet.addEntry(Entry(5F, 14F))
-        lineDataSet.addEntry(Entry(6F, 2F))
+        lineDataSet.addEntry(Entry(0F, 0F))
+        currentLen = 1
+        dataXval = 1
 
         lineDataSet.setDrawValues(false)
         lineDataSet.setDrawFilled(true)
         lineDataSet.lineWidth = 3f
         lineChart!!.data = LineData(lineDataSet)
-        lineChart?.setVisibleXRange(10.toFloat(), 10.toFloat())
+        lineChart?.setVisibleXRangeMaximum(maxXVisibleRange.toFloat())
     }
 
     private val connectionEventListener by lazy {
@@ -113,12 +113,22 @@ class GraphActivity : AppCompatActivity() {
 
             onCharacteristicChanged = { _, characteristic, value ->
                 println("Value changed on ${characteristic.uuid}: ${value.toHexString()}")
-                lineDataSet.removeFirst();
-                lineDataSet.addEntry(Entry(test.toFloat(), (0..50).random().toFloat()))
-                lineChart?.notifyDataSetChanged()
-                lineChart?.data?.notifyDataChanged()
-                lineChart?.invalidate()
-                test = test + 1
+
+                if(characteristic.uuid.equals(dataCharUUID)) {
+                    var test0 = littleEndianConversion(value)
+
+                    while(currentLen >= maxXVisibleRange) {
+                        lineDataSet.removeFirst();
+                        currentLen = currentLen - 1
+                    }
+
+                    lineDataSet.addEntry(Entry(dataXval.toFloat(), test0.toFloat()))
+                    lineChart?.notifyDataSetChanged()
+                    lineChart?.data?.notifyDataChanged()
+                    lineChart?.invalidate()
+                    dataXval = dataXval + 1
+                    currentLen = currentLen + 1
+                }
             }
 
             onNotificationsEnabled = { _, characteristic ->
@@ -132,6 +142,15 @@ class GraphActivity : AppCompatActivity() {
             }
         }
     }
+
+    fun littleEndianConversion(bytes: ByteArray): Int {
+        var result = 0
+        for (i in bytes.indices) {
+            result = result or ((bytes[i].toUInt() and 255u) shl (8 * i)).toInt()
+        }
+        return result
+    }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             android.R.id.home -> {
