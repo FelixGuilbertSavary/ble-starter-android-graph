@@ -17,16 +17,11 @@
 package com.punchthrough.blestarterappandroid
 
 data class SamplePoint(
-    val cellInputPressure : Float,
-    val cellInputTemp : Float,
-    val cellInputHumidity : Float,
-    val cellOutputPressure : Float,
-    val cellOutputTemp : Float,
-    val cellOutputHumidity : Float,
-    val QCLDriverHumidity : Float,
-    val QCLDriverTemp : Float,
-    val timestamp: UInt,
     val gasConcentration : Float,
+    val timestamp: UInt,
+    val GPSLatitude: UInt,
+    val GPSLongitude: UInt,
+    val GPSAltitude: UInt,
     val systemStable : UByte,
     val fault : UByte
 )

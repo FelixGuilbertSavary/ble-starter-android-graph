@@ -108,11 +108,11 @@ class BleOperationsActivity : AppCompatActivity() {
             hideKeyboard()
         }
 
-        val buttonClick = findViewById<Button>(R.id.graphBtn)
-        buttonClick.setOnClickListener {
-            val intent = Intent(this, GraphActivity::class.java)
-            startActivity(intent)
-        }
+//        val buttonClick = findViewById<Button>(R.id.graphBtn)
+//        buttonClick.setOnClickListener {
+//            val intent = Intent(this, GraphActivity::class.java)
+//            startActivity(intent)
+//        }
     }
 
     override fun onDestroy() {

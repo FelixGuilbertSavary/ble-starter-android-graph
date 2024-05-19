@@ -144,15 +144,10 @@ class GraphActivity : AppCompatActivity() {
     fun convertSample(bytes: ByteArray): SamplePoint {
         val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
         val sample = SamplePoint (  buffer.getFloat(),
-            buffer.getFloat(),
-            buffer.getFloat(),
-            buffer.getFloat(),
-            buffer.getFloat(),
-            buffer.getFloat(),
-            buffer.getFloat(),
-            buffer.getFloat(),
             buffer.getInt().toUInt(),
-            buffer.getFloat(),
+            buffer.getInt().toUInt(),
+            buffer.getInt().toUInt(),
+            buffer.getInt().toUInt(),
             buffer.get().toUByte(),
             buffer.get().toUByte()
         )
