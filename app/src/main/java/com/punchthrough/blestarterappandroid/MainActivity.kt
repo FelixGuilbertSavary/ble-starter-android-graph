@@ -283,8 +283,10 @@ class MainActivity : AppCompatActivity() {
                 with(result.device) {
                     Timber.i("Found BLE device! Name: ${name ?: "Unnamed"}, address: $address")
                 }
-                scanResults.add(result)
-                scanResultAdapter.notifyItemInserted(scanResults.size - 1)
+                if(result.device.name != null) {
+                    scanResults.add(result)
+                    scanResultAdapter.notifyItemInserted(scanResults.size - 1)
+                }
             }
         }
 

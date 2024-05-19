@@ -22,7 +22,6 @@ import android.os.Bundle
 import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
 import com.github.mikephil.charting.charts.LineChart
-import com.github.mikephil.charting.components.YAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
@@ -31,8 +30,8 @@ import com.punchthrough.blestarterappandroid.ble.ConnectionManager
 import com.punchthrough.blestarterappandroid.ble.ConnectionManager.parcelableExtraCompat
 import com.punchthrough.blestarterappandroid.databinding.ActivityGraphBinding
 import com.punchthrough.blestarterappandroid.ble.toHexString
-import java.math.BigInteger
-import java.util.Random
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.UUID
 
 class GraphActivity : AppCompatActivity() {
@@ -67,6 +66,7 @@ class GraphActivity : AppCompatActivity() {
         }
 
         ConnectionManager.registerListener(connectionEventListener)
+        ConnectionManager.requestMtu(device, 60)
 
         for (characteristic in characteristics) {
             println(characteristic.uuid)
@@ -112,22 +112,20 @@ class GraphActivity : AppCompatActivity() {
             }
 
             onCharacteristicChanged = { _, characteristic, value ->
-                println("Value changed on ${characteristic.uuid}: ${value.toHexString()}")
-
                 if(characteristic.uuid.equals(dataCharUUID)) {
-                    var test0 = littleEndianConversion(value)
+                    var sample = convertSample(value)
 
                     while(currentLen >= maxXVisibleRange) {
                         lineDataSet.removeFirst();
-                        currentLen = currentLen - 1
+                        currentLen -= 1
                     }
 
-                    lineDataSet.addEntry(Entry(dataXval.toFloat(), test0.toFloat()))
+                    lineDataSet.addEntry(Entry(dataXval.toFloat(), sample.gasConcentration))
                     lineChart?.notifyDataSetChanged()
                     lineChart?.data?.notifyDataChanged()
                     lineChart?.invalidate()
-                    dataXval = dataXval + 1
-                    currentLen = currentLen + 1
+                    dataXval += 1
+                    currentLen += 1
                 }
             }
 
@@ -143,12 +141,23 @@ class GraphActivity : AppCompatActivity() {
         }
     }
 
-    fun littleEndianConversion(bytes: ByteArray): Int {
-        var result = 0
-        for (i in bytes.indices) {
-            result = result or ((bytes[i].toUInt() and 255u) shl (8 * i)).toInt()
-        }
-        return result
+    fun convertSample(bytes: ByteArray): SamplePoint {
+        val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+        val sample = SamplePoint (  buffer.getFloat(),
+            buffer.getFloat(),
+            buffer.getFloat(),
+            buffer.getFloat(),
+            buffer.getFloat(),
+            buffer.getFloat(),
+            buffer.getFloat(),
+            buffer.getFloat(),
+            buffer.getInt().toUInt(),
+            buffer.getFloat(),
+            buffer.get().toUByte(),
+            buffer.get().toUByte()
+        )
+
+        return sample
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
