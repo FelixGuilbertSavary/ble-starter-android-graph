@@ -16,37 +16,31 @@
 
 package com.punchthrough.blestarterappandroid
 
-import android.app.AlertDialog
 import android.bluetooth.BluetoothDevice
-import android.content.Intent
+import android.bluetooth.BluetoothGattCharacteristic
 import android.os.Bundle
 import android.view.MenuItem
 import android.widget.Button
+import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
-import com.github.mikephil.charting.charts.LineChart
-import com.github.mikephil.charting.data.Entry
-import com.github.mikephil.charting.data.LineData
-import com.github.mikephil.charting.data.LineDataSet
 import com.punchthrough.blestarterappandroid.ble.ConnectionEventListener
 import com.punchthrough.blestarterappandroid.ble.ConnectionManager
 import com.punchthrough.blestarterappandroid.ble.ConnectionManager.parcelableExtraCompat
-import com.punchthrough.blestarterappandroid.databinding.ActivityGraphBinding
+import com.punchthrough.blestarterappandroid.databinding.ActivitySettingsBinding
+import com.punchthrough.blestarterappandroid.ble.toHexString
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.UUID
 
-class GraphActivity : AppCompatActivity() {
-    private lateinit var binding: ActivityGraphBinding
-    private var lineChart: LineChart? = null
-    private var maxXVisibleRange = 50
-    private var currentLen = 0
-    private var dataXval = 0
-    private val dataCharUUID = UUID.fromString("0000ff01-0000-1000-8000-00805f9b34fb")
-    private val lineDataSet = LineDataSet(ArrayList<Entry>(), "Concentration")
+class SettingActivity : AppCompatActivity() {
+    private lateinit var binding: ActivitySettingsBinding
+    private val settingCharUUID = UUID.fromString("0000ff02-0000-1000-8000-00805f9b34fb")
+    private lateinit var settingChar : BluetoothGattCharacteristic
+    private lateinit var samplingField : EditText
 
     private val device: BluetoothDevice by lazy {
         intent.parcelableExtraCompat(BluetoothDevice.EXTRA_DEVICE)
-            ?: error("Missing BluetoothDevice from MainActivity!")
+            ?: error("Missing BluetoothDevice from graph activity!")
     }
 
     private val characteristics by lazy {
@@ -56,65 +50,66 @@ class GraphActivity : AppCompatActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityGraphBinding.inflate(layoutInflater)
-        lineChart = binding.lineChart
+        binding = ActivitySettingsBinding.inflate(layoutInflater)
 
         setContentView(binding.root)
         supportActionBar?.apply {
             setDisplayHomeAsUpEnabled(true)
             setDisplayShowTitleEnabled(true)
-            title = "Graph"
+            title = "Settings"
         }
 
         ConnectionManager.registerListener(connectionEventListener)
-        ConnectionManager.requestMtu(device, 60)
 
         for (characteristic in characteristics) {
             println(characteristic.uuid)
-            if(characteristic.uuid.equals(dataCharUUID)) {
-                ConnectionManager.enableNotifications(device, characteristic)
-                println("Found char!")
+            if(characteristic.uuid.equals(settingCharUUID)) {
+                println("Found char Setting!")
+                settingChar = characteristic
             }
         }
 
-        lineDataSet.addEntry(Entry(0F, 0F))
-        currentLen = 1
-        dataXval = 1
+        ConnectionManager.readCharacteristic(device, settingChar)
+        samplingField = findViewById<EditText>(R.id.samplingInterval)
 
-        lineDataSet.setDrawValues(false)
-        lineDataSet.setDrawFilled(true)
-        lineDataSet.lineWidth = 3f
-        lineChart!!.data = LineData(lineDataSet)
-        lineChart?.setVisibleXRangeMaximum(maxXVisibleRange.toFloat())
+        val btnPull = findViewById<Button>(R.id.btnSettingPull)
+        btnPull.setOnClickListener{
+            ConnectionManager.readCharacteristic(device, settingChar)
+        }
 
-        val buttonClick = findViewById<Button>(R.id.buttonSetting)
-        buttonClick.setOnClickListener {
-            val intent = Intent(this, SettingActivity::class.java)
-            intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device)
-            println("Starting Setting")
-            startActivity(intent)
-            println("StartActivity returned")
+        val btnPush = findViewById<Button>(R.id.btnSettingPush)
+        btnPush.setOnClickListener{
+            val parsedInt = samplingField.getText().toString().toIntOrNull()
+            if(parsedInt != null) {
+                println("The parsed int is $parsedInt")
+                var conf = ConfigRegister(0f, 0f, 0f, parsedInt.toUInt(), 0u, 0u)
+                ConnectionManager.writeCharacteristic(device, settingChar, conf.toByteArray())
+            }
+        }
+    }
+
+    private fun updateDisplayInterval(interval: UInt) {
+        runOnUiThread {
+            binding.samplingInterval.setText(interval.toString())
         }
     }
 
     private val connectionEventListener by lazy {
         ConnectionEventListener().apply {
             onDisconnect = {
-                runOnUiThread {
-                    AlertDialog.Builder(this@GraphActivity)
-                        .setTitle("Disconnected")
-                        .setMessage("Disconnected from device.")
-                        .setPositiveButton("OK") { _, _ -> onBackPressed() }
-                        .show()
-                }
+
             }
 
             onCharacteristicRead = { _, characteristic, value ->
-                //log("Read from ${characteristic.uuid}: ${value.toHexString()}")
+                println("Read from ${characteristic.uuid}: ${value.toHexString()}")
+                if(characteristic.uuid.equals(settingCharUUID)) {
+                    var conf = ConfigRegister(value)
+                    updateDisplayInterval(conf.samplingInterval)
+                }
             }
 
             onCharacteristicWrite = { _, characteristic ->
-                //log("Wrote to ${characteristic.uuid}")
+                println("Wrote to ${characteristic.uuid}")
             }
 
             onMtuChanged = { _, mtu ->
@@ -122,21 +117,7 @@ class GraphActivity : AppCompatActivity() {
             }
 
             onCharacteristicChanged = { _, characteristic, value ->
-                if(characteristic.uuid.equals(dataCharUUID)) {
-                    var sample = SamplePoint(value)
 
-                    while(currentLen >= maxXVisibleRange) {
-                        lineDataSet.removeFirst();
-                        currentLen -= 1
-                    }
-
-                    lineDataSet.addEntry(Entry(dataXval.toFloat(), sample.gasConcentration))
-                    lineChart?.notifyDataSetChanged()
-                    lineChart?.data?.notifyDataChanged()
-                    lineChart?.invalidate()
-                    dataXval += 1
-                    currentLen += 1
-                }
             }
 
             onNotificationsEnabled = { _, characteristic ->
@@ -162,7 +143,6 @@ class GraphActivity : AppCompatActivity() {
     }
     override fun onDestroy() {
         ConnectionManager.unregisterListener(connectionEventListener)
-        ConnectionManager.teardownConnection(device)
         super.onDestroy()
     }
 }
